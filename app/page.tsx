@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 type Ratio = '1:1' | '2:3' | '9:16';
 
@@ -9,14 +9,23 @@ export default function Home() {
   const [ratio, setRatio] = useState<Ratio>('2:3');
   const [loading, setLoading] = useState(false);
   const [image, setImage] = useState('');
+  const [provider, setProvider] = useState('');
   const [error, setError] = useState('');
 
   useEffect(() => {
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
   }, []);
 
+  const downloadName = useMemo(() => {
+    if (image.startsWith('data:image/png')) return 'image-forge-output.png';
+    if (image.startsWith('data:image/jpeg') || image.startsWith('data:image/jpg')) return 'image-forge-output.jpg';
+    if (image.startsWith('data:image/webp')) return 'image-forge-output.webp';
+    return 'image-forge-output.svg';
+  }, [image]);
+
   async function generate() {
-    setLoading(true); setError('');
+    setLoading(true);
+    setError('');
     try {
       const res = await fetch('/api/generate', {
         method: 'POST',
@@ -26,6 +35,7 @@ export default function Home() {
       const data = await res.json();
       if (!res.ok || !data.ok) throw new Error(data.error || 'Generation failed');
       setImage(data.imageDataUrl);
+      setProvider(data.provider || 'unknown');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Unknown error');
     } finally {
@@ -36,9 +46,9 @@ export default function Home() {
   return (
     <main className="page">
       <section className="card hero">
-        <div className="eyebrow">FREE-FIRST v0.2</div>
+        <div className="eyebrow">FREE-FIRST v0.3</div>
         <h1>IMAGE FORGE MOBILE</h1>
-        <p>スマホ中心の画像生成フロントエンド。現在は無料Mockモードで配備確認中。</p>
+        <p>HF_TOKEN設定時は実画像生成、未設定時は無料Mockで動作します。</p>
       </section>
 
       <section className="card form">
@@ -57,8 +67,9 @@ export default function Home() {
 
       {image && (
         <section className="card result">
-          <img src={image} alt="Generated mock output" />
-          <a className="save" href={image} download="image-forge-output.svg">SAVE</a>
+          <div className="eyebrow">PROVIDER: {provider.toUpperCase()}</div>
+          <img src={image} alt="Generated output" />
+          <a className="save" href={image} download={downloadName}>SAVE</a>
         </section>
       )}
     </main>
